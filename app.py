@@ -1,6 +1,6 @@
 # =========================================
 # AI СКЕНЕР ЗА ХРАНИТЕЛНИ ЕТИКЕТИ
-# BG / EN OCR MODE
+# OCR + AI PRODUCT DETECTION
 # =========================================
 
 import streamlit as st
@@ -29,7 +29,7 @@ language = st.selectbox(
 )
 
 # =========================================
-# LANGUAGE SETTINGS
+# BULGARIAN MODE
 # =========================================
 
 if language == "Български":
@@ -59,6 +59,53 @@ if language == "Български":
         "глюкозо-фруктозен сироп": "Може да доведе до диабет.",
         "транс мазнини": "Повишават риска от сърдечни заболявания."
     }
+
+    # =========================================
+    # HEALTH PROBLEMS
+    # =========================================
+
+    health_problems = {
+
+        "e621": [
+            "Главоболие",
+            "Умора",
+            "Проблеми с нервната система"
+        ],
+
+        "e250": [
+            "Риск от рак",
+            "Проблеми със сърцето"
+        ],
+
+        "e102": [
+            "Алергии",
+            "Хиперактивност"
+        ],
+
+        "палмово масло": [
+            "Висок холестерол",
+            "Сърдечни заболявания"
+        ],
+
+        "аспартам": [
+            "Главоболие",
+            "Замайване"
+        ],
+
+        "глюкозо-фруктозен сироп": [
+            "Диабет",
+            "Затлъстяване"
+        ],
+
+        "транс мазнини": [
+            "Сърдечни заболявания",
+            "Висок холестерол"
+        ]
+    }
+
+    # =========================================
+    # PRODUCT DETECTION
+    # =========================================
 
     product_patterns = {
 
@@ -139,6 +186,10 @@ if language == "Български":
         }
     }
 
+# =========================================
+# ENGLISH MODE
+# =========================================
+
 else:
 
     OCR_LANG = ['en']
@@ -166,6 +217,53 @@ else:
         "high fructose corn syrup": "May lead to diabetes.",
         "trans fats": "Increase heart disease risk."
     }
+
+    # =========================================
+    # HEALTH PROBLEMS
+    # =========================================
+
+    health_problems = {
+
+        "e621": [
+            "Headaches",
+            "Fatigue",
+            "Nervous system problems"
+        ],
+
+        "e250": [
+            "Cancer risk",
+            "Heart problems"
+        ],
+
+        "e102": [
+            "Allergies",
+            "Hyperactivity"
+        ],
+
+        "palm oil": [
+            "High cholesterol",
+            "Heart disease"
+        ],
+
+        "aspartame": [
+            "Headaches",
+            "Dizziness"
+        ],
+
+        "high fructose corn syrup": [
+            "Diabetes",
+            "Obesity"
+        ],
+
+        "trans fats": [
+            "Heart disease",
+            "High cholesterol"
+        ]
+    }
+
+    # =========================================
+    # PRODUCT DETECTION
+    # =========================================
 
     product_patterns = {
 
@@ -287,7 +385,10 @@ if uploaded_file:
 
     extracted_text = " ".join(results).lower()
 
-    # SHOW TEXT
+    # =========================================
+    # SHOW OCR TEXT
+    # =========================================
+
     if language == "Български":
         st.subheader("Разпознат текст:")
     else:
@@ -313,7 +414,22 @@ if uploaded_file:
             found = True
 
             st.error(f"{ingredient.upper()}")
+
             st.write(info)
+
+            # =========================================
+            # HEALTH PROBLEMS
+            # =========================================
+
+            if ingredient in health_problems:
+
+                if language == "Български":
+                    st.warning("Възможни здравословни проблеми:")
+                else:
+                    st.warning("Possible health problems:")
+
+                for problem in health_problems[ingredient]:
+                    st.write(f"• {problem}")
 
     if not found:
 
