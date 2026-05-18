@@ -1,62 +1,257 @@
+# =========================================
+# AI СКЕНЕР ЗА ХРАНИТЕЛНИ ЕТИКЕТИ
+# Разпознаване на продукт чрез съставки
+# =========================================
+
 import streamlit as st
 import easyocr
 from PIL import Image, ImageEnhance
 import numpy as np
 
-# Заглавие
-st.title("Скенер за хранителни етикети")
-st.write("Приложение за разпознаване и анализ на вредни съставки в хранителни продукти.")
+# =========================================
+# STREAMLIT
+# =========================================
 
-# Поддръжка на езици
+st.set_page_config(page_title="Food Label Scanner", layout="centered")
+
+st.title("Скенер за хранителни етикети")
+st.write("AI приложение за анализ на хранителни продукти")
+
+# =========================================
+# ЕЗИК
+# =========================================
+
 language = st.selectbox(
     "Изберете език / Choose language",
     ["Български", "English"]
 )
 
-# Речник с вредни съставки
+# =========================================
+# ВРЕДНИ СЪСТАВКИ
+# =========================================
+
 harmful_ingredients = {
-    "E621": {
-        "bg": "Мононатриев глутамат - може да причини главоболие, умора и проблеми с нервната система.",
-        "en": "Monosodium glutamate - may cause headaches, fatigue and nervous system problems."
+
+    "e102": "Тартразин – може да предизвика алергии и хиперактивност.",
+    "e104": "Жълто хинолиново – свързва се с хиперактивност.",
+    "e110": "Сънсет жълто – възможни алергични реакции.",
+    "e122": "Кармоизин – може да причини алергии.",
+    "e124": "Понсо 4R – възможна хиперактивност.",
+    "e129": "Алура червено – свързва се с хиперактивност.",
+    "e211": "Натриев бензоат – възможни проблеми с нервната система.",
+    "e220": "Серен диоксид – може да предизвика астма.",
+    "e250": "Натриев нитрит – свързва се с риск от рак.",
+    "e251": "Натриев нитрат – вреден при прекомерна консумация.",
+    "e320": "BHA – възможен канцероген.",
+    "e321": "BHT – възможни проблеми с черния дроб.",
+    "e407": "Карагенан – може да раздразни стомаха.",
+    "e621": "Мононатриев глутамат – може да причини главоболие.",
+    "e627": "Динатриев гуанилат – усилвател на вкуса.",
+    "e631": "Динатриев инозинат – усилвател на вкуса.",
+    "палмово масло": "Съдържа наситени мазнини.",
+    "palm oil": "Contains saturated fats.",
+    "аспартам": "Изкуствен подсладител.",
+    "aspartame": "Artificial sweetener.",
+    "глюкозо-фруктозен сироп": "Може да доведе до диабет.",
+    "high fructose corn syrup": "May lead to obesity and diabetes.",
+    "транс мазнини": "Повишават риска от сърдечни заболявания.",
+    "hydrogenated oil": "Хидрогенирани мазнини – вредни за сърцето."
+}
+
+# =========================================
+# AI РАЗПОЗНАВАНЕ НА ПРОДУКТ ПО СЪСТАВКИ
+# =========================================
+
+product_patterns = {
+
+    "Чипс": {
+        "ingredients": [
+            "картофи",
+            "potatoes",
+            "палмово масло",
+            "palm oil",
+            "e621",
+            "сол",
+            "salt"
+        ],
+
+        "alternatives": [
+            "Домашно изпечени картофи",
+            "Зеленчуков чипс",
+            "Пуканки без масло"
+        ]
     },
-    "палмово масло": {
-        "bg": "Палмовото масло съдържа наситени мазнини и може да повиши риска от сърдечни заболявания.",
-        "en": "Palm oil contains saturated fats and may increase the risk of heart disease."
+
+    "Газирана напитка": {
+        "ingredients": [
+            "захар",
+            "sugar",
+            "аспартам",
+            "aspartame",
+            "карамел",
+            "кофеин",
+            "carbonated"
+        ],
+
+        "alternatives": [
+            "Домашна лимонада",
+            "Минерална вода с лимон",
+            "Студен чай без захар"
+        ]
     },
-    "palm oil": {
-        "bg": "Палмовото масло съдържа наситени мазнини и може да повиши риска от сърдечни заболявания.",
-        "en": "Palm oil contains saturated fats and may increase the risk of heart disease."
+
+    "Енергийна напитка": {
+        "ingredients": [
+            "taurine",
+            "кофеин",
+            "caffeine",
+            "захар",
+            "витамини",
+            "energy"
+        ],
+
+        "alternatives": [
+            "Зелен чай",
+            "Натурален сок",
+            "Плодово смути"
+        ]
     },
-    "E102": {
-        "bg": "Тартразин - може да предизвика алергии и хиперактивност при деца.",
-        "en": "Tartrazine - may cause allergies and hyperactivity in children."
+
+    "Шоколад": {
+        "ingredients": [
+            "какао",
+            "cocoa",
+            "палмово масло",
+            "мляко",
+            "milk",
+            "захар"
+        ],
+
+        "alternatives": [
+            "Черен шоколад 85%",
+            "Плодове",
+            "Домашни десерти"
+        ]
     },
-    "E250": {
-        "bg": "Натриев нитрит - свързва се с риск от рак при прекомерна употреба.",
-        "en": "Sodium nitrite - linked to cancer risk when consumed excessively."
+
+    "Бисквити": {
+        "ingredients": [
+            "брашно",
+            "flour",
+            "захар",
+            "палмово масло",
+            "глюкозо-фруктозен сироп"
+        ],
+
+        "alternatives": [
+            "Овесени бисквити",
+            "Домашни сладки",
+            "Ядки и плодове"
+        ]
+    },
+
+    "Колбас": {
+        "ingredients": [
+            "e250",
+            "e251",
+            "нитрит",
+            "нитрат",
+            "месо",
+            "meat"
+        ],
+
+        "alternatives": [
+            "Печено месо",
+            "Пилешко филе",
+            "Домашно приготвено месо"
+        ]
+    },
+
+    "Сладолед": {
+        "ingredients": [
+            "мляко",
+            "milk",
+            "захар",
+            "палмово масло",
+            "стабилизатор"
+        ],
+
+        "alternatives": [
+            "Замразено кисело мляко",
+            "Плодово смути",
+            "Бананов сладолед"
+        ]
+    },
+
+    "Инстантни нудли": {
+        "ingredients": [
+            "e621",
+            "палмово масло",
+            "noodles",
+            "подправки",
+            "spices"
+        ],
+
+        "alternatives": [
+            "Домашна супа",
+            "Ориз със зеленчуци",
+            "Пълнозърнеста паста"
+        ]
+    },
+
+    "Пица": {
+        "ingredients": [
+            "сирене",
+            "cheese",
+            "доматен сос",
+            "flour",
+            "e250"
+        ],
+
+        "alternatives": [
+            "Домашна пица",
+            "Пълнозърнеста пица",
+            "Зеленчукова пита"
+        ]
+    },
+
+    "Бургер": {
+        "ingredients": [
+            "burger",
+            "месо",
+            "сос",
+            "cheese",
+            "e621"
+        ],
+
+        "alternatives": [
+            "Домашен бургер",
+            "Пилешки сандвич",
+            "Пълнозърнест сандвич"
+        ]
     }
 }
 
-# Алтернативи на пакетирани храни
-alternatives = {
-    "чипс": "Домашно изпечени картофи",
-    "газирани напитки": "Домашна лимонада",
-    "шоколад": "Черен шоколад с високо съдържание на какао",
-    "колбаси": "Прясно приготвено месо"
-}
+# =========================================
+# UPLOAD
+# =========================================
 
-# Качване на снимка
 uploaded_file = st.file_uploader(
-    "Качете снимка на етикет / Upload food label image",
+    "Качете снимка на етикет",
     type=["jpg", "jpeg", "png"]
 )
 
+# =========================================
+# OCR
+# =========================================
+
 if uploaded_file:
+
     image = Image.open(uploaded_file)
 
     st.image(image, caption="Качено изображение", use_column_width=True)
 
-    # Подобряване на изображението
+    # Подобряване на контраста
     enhancer = ImageEnhance.Contrast(image)
     image = enhancer.enhance(2)
 
@@ -64,38 +259,75 @@ if uploaded_file:
 
     st.write("Разпознаване на текст...")
 
-    # EasyOCR Reader
     reader = easyocr.Reader(['bg', 'en'])
 
     results = reader.readtext(image_np, detail=0)
 
-    extracted_text = " ".join(results)
+    extracted_text = " ".join(results).lower()
 
     st.subheader("Разпознат текст:")
     st.write(extracted_text)
 
+    # =========================================
+    # ТЪРСЕНЕ НА ВРЕДНИ СЪСТАВКИ
+    # =========================================
+
+    st.subheader("Вредни съставки:")
+
     found = False
 
-    st.subheader("Открити вредни съставки:")
+    for ingredient, info in harmful_ingredients.items():
 
-    for ingredient in harmful_ingredients:
-        if ingredient.lower() in extracted_text.lower():
+        if ingredient in extracted_text:
+
             found = True
 
-            if language == "Български":
-                st.error(f"Открито: {ingredient}")
-                st.write(harmful_ingredients[ingredient]["bg"])
-            else:
-                st.error(f"Found: {ingredient}")
-                st.write(harmful_ingredients[ingredient]["en"])
+            st.error(f"Открито: {ingredient.upper()}")
+            st.write(info)
 
     if not found:
-        if language == "Български":
-            st.success("Не са открити вредни съставки.")
-        else:
-            st.success("No harmful ingredients found.")
+        st.success("Не са открити вредни съставки.")
 
-    st.subheader("По-здравословни алтернативи:")
+    # =========================================
+    # AI ПОЗНАВАНЕ НА ПРОДУКТ
+    # =========================================
 
-    for food, alt in alternatives.items():
-        st.write(f"• {food} → {alt}")
+    st.subheader("AI Разпознаване на продукта")
+
+    best_match = None
+    best_score = 0
+
+    for product, data in product_patterns.items():
+
+        score = 0
+
+        for keyword in data["ingredients"]:
+
+            if keyword in extracted_text:
+                score += 1
+
+        if score > best_score:
+            best_score = score
+            best_match = product
+
+    # =========================================
+    # РЕЗУЛТАТ
+    # =========================================
+
+    if best_match:
+
+        st.success(f"Разпознат продукт: {best_match}")
+
+        st.subheader("По-здравословни алтернативи:")
+
+        for alt in product_patterns[best_match]["alternatives"]:
+            st.write(f"• {alt}")
+
+    else:
+
+        st.warning("Продуктът не можа да бъде разпознат.")
+
+        st.write("Общи здравословни алтернативи:")
+        st.write("• Домашно приготвена храна")
+        st.write("• Повече плодове")
+        st.write("• Повече зеленчуци")
