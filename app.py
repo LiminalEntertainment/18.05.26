@@ -1,6 +1,6 @@
 # =========================================
 # AI СКЕНЕР ЗА ХРАНИТЕЛНИ ЕТИКЕТИ
-# Разпознаване на продукт чрез съставки
+# BG / EN OCR MODE
 # =========================================
 
 import streamlit as st
@@ -9,16 +9,18 @@ from PIL import Image, ImageEnhance
 import numpy as np
 
 # =========================================
-# STREAMLIT
+# STREAMLIT SETTINGS
 # =========================================
 
-st.set_page_config(page_title="Food Label Scanner", layout="centered")
+st.set_page_config(
+    page_title="Food Label Scanner",
+    layout="centered"
+)
 
 st.title("Скенер за хранителни етикети")
-st.write("AI приложение за анализ на хранителни продукти")
 
 # =========================================
-# ЕЗИК
+# LANGUAGE SELECTION
 # =========================================
 
 language = st.selectbox(
@@ -27,252 +29,280 @@ language = st.selectbox(
 )
 
 # =========================================
-# ВРЕДНИ СЪСТАВКИ
+# LANGUAGE SETTINGS
 # =========================================
 
-harmful_ingredients = {
+if language == "Български":
 
-    "e102": "Тартразин – може да предизвика алергии и хиперактивност.",
-    "e104": "Жълто хинолиново – свързва се с хиперактивност.",
-    "e110": "Сънсет жълто – възможни алергични реакции.",
-    "e122": "Кармоизин – може да причини алергии.",
-    "e124": "Понсо 4R – възможна хиперактивност.",
-    "e129": "Алура червено – свързва се с хиперактивност.",
-    "e211": "Натриев бензоат – възможни проблеми с нервната система.",
-    "e220": "Серен диоксид – може да предизвика астма.",
-    "e250": "Натриев нитрит – свързва се с риск от рак.",
-    "e251": "Натриев нитрат – вреден при прекомерна консумация.",
-    "e320": "BHA – възможен канцероген.",
-    "e321": "BHT – възможни проблеми с черния дроб.",
-    "e407": "Карагенан – може да раздразни стомаха.",
-    "e621": "Мононатриев глутамат – може да причини главоболие.",
-    "e627": "Динатриев гуанилат – усилвател на вкуса.",
-    "e631": "Динатриев инозинат – усилвател на вкуса.",
-    "палмово масло": "Съдържа наситени мазнини.",
-    "palm oil": "Contains saturated fats.",
-    "аспартам": "Изкуствен подсладител.",
-    "aspartame": "Artificial sweetener.",
-    "глюкозо-фруктозен сироп": "Може да доведе до диабет.",
-    "high fructose corn syrup": "May lead to obesity and diabetes.",
-    "транс мазнини": "Повишават риска от сърдечни заболявания.",
-    "hydrogenated oil": "Хидрогенирани мазнини – вредни за сърцето."
-}
+    OCR_LANG = ['bg']
 
-# =========================================
-# AI РАЗПОЗНАВАНЕ НА ПРОДУКТ ПО СЪСТАВКИ
-# =========================================
+    harmful_ingredients = {
 
-product_patterns = {
-
-    "Чипс": {
-        "ingredients": [
-            "картофи",
-            "potatoes",
-            "палмово масло",
-            "palm oil",
-            "e621",
-            "сол",
-            "salt"
-        ],
-
-        "alternatives": [
-            "Домашно изпечени картофи",
-            "Зеленчуков чипс",
-            "Пуканки без масло"
-        ]
-    },
-
-    "Газирана напитка": {
-        "ingredients": [
-            "захар",
-            "sugar",
-            "аспартам",
-            "aspartame",
-            "карамел",
-            "кофеин",
-            "carbonated"
-        ],
-
-        "alternatives": [
-            "Домашна лимонада",
-            "Минерална вода с лимон",
-            "Студен чай без захар"
-        ]
-    },
-
-    "Енергийна напитка": {
-        "ingredients": [
-            "taurine",
-            "кофеин",
-            "caffeine",
-            "захар",
-            "витамини",
-            "energy"
-        ],
-
-        "alternatives": [
-            "Зелен чай",
-            "Натурален сок",
-            "Плодово смути"
-        ]
-    },
-
-    "Шоколад": {
-        "ingredients": [
-            "какао",
-            "cocoa",
-            "палмово масло",
-            "мляко",
-            "milk",
-            "захар"
-        ],
-
-        "alternatives": [
-            "Черен шоколад 85%",
-            "Плодове",
-            "Домашни десерти"
-        ]
-    },
-
-    "Бисквити": {
-        "ingredients": [
-            "брашно",
-            "flour",
-            "захар",
-            "палмово масло",
-            "глюкозо-фруктозен сироп"
-        ],
-
-        "alternatives": [
-            "Овесени бисквити",
-            "Домашни сладки",
-            "Ядки и плодове"
-        ]
-    },
-
-    "Колбас": {
-        "ingredients": [
-            "e250",
-            "e251",
-            "нитрит",
-            "нитрат",
-            "месо",
-            "meat"
-        ],
-
-        "alternatives": [
-            "Печено месо",
-            "Пилешко филе",
-            "Домашно приготвено месо"
-        ]
-    },
-
-    "Сладолед": {
-        "ingredients": [
-            "мляко",
-            "milk",
-            "захар",
-            "палмово масло",
-            "стабилизатор"
-        ],
-
-        "alternatives": [
-            "Замразено кисело мляко",
-            "Плодово смути",
-            "Бананов сладолед"
-        ]
-    },
-
-    "Инстантни нудли": {
-        "ingredients": [
-            "e621",
-            "палмово масло",
-            "noodles",
-            "подправки",
-            "spices"
-        ],
-
-        "alternatives": [
-            "Домашна супа",
-            "Ориз със зеленчуци",
-            "Пълнозърнеста паста"
-        ]
-    },
-
-    "Пица": {
-        "ingredients": [
-            "сирене",
-            "cheese",
-            "доматен сос",
-            "flour",
-            "e250"
-        ],
-
-        "alternatives": [
-            "Домашна пица",
-            "Пълнозърнеста пица",
-            "Зеленчукова пита"
-        ]
-    },
-
-    "Бургер": {
-        "ingredients": [
-            "burger",
-            "месо",
-            "сос",
-            "cheese",
-            "e621"
-        ],
-
-        "alternatives": [
-            "Домашен бургер",
-            "Пилешки сандвич",
-            "Пълнозърнест сандвич"
-        ]
+        "e102": "Тартразин – може да причини алергии и хиперактивност.",
+        "e104": "Жълто хинолиново – свързва се с хиперактивност.",
+        "e110": "Сънсет жълто – възможни алергии.",
+        "e122": "Кармоизин – може да причини алергии.",
+        "e124": "Понсо 4R – възможна хиперактивност.",
+        "e129": "Алура червено – свързва се с хиперактивност.",
+        "e211": "Натриев бензоат – възможни проблеми с нервната система.",
+        "e220": "Серен диоксид – може да причини астма.",
+        "e250": "Натриев нитрит – свързва се с риск от рак.",
+        "e251": "Натриев нитрат – вреден при прекомерна консумация.",
+        "e320": "BHA – възможен канцероген.",
+        "e321": "BHT – възможни проблеми с черния дроб.",
+        "e407": "Карагенан – може да раздразни стомаха.",
+        "e621": "Мононатриев глутамат – може да причини главоболие.",
+        "e627": "Динатриев гуанилат – усилвател на вкуса.",
+        "e631": "Динатриев инозинат – усилвател на вкуса.",
+        "палмово масло": "Съдържа много наситени мазнини.",
+        "аспартам": "Изкуствен подсладител.",
+        "глюкозо-фруктозен сироп": "Може да доведе до диабет.",
+        "транс мазнини": "Повишават риска от сърдечни заболявания."
     }
-}
+
+    product_patterns = {
+
+        "Чипс": {
+            "ingredients": [
+                "картофи",
+                "палмово масло",
+                "e621",
+                "сол"
+            ],
+
+            "alternatives": [
+                "Домашно изпечени картофи",
+                "Зеленчуков чипс",
+                "Пуканки без масло"
+            ]
+        },
+
+        "Газирана напитка": {
+            "ingredients": [
+                "захар",
+                "аспартам",
+                "карамел",
+                "кофеин"
+            ],
+
+            "alternatives": [
+                "Домашна лимонада",
+                "Минерална вода с лимон",
+                "Студен чай без захар"
+            ]
+        },
+
+        "Шоколад": {
+            "ingredients": [
+                "какао",
+                "палмово масло",
+                "мляко",
+                "захар"
+            ],
+
+            "alternatives": [
+                "Черен шоколад 85%",
+                "Плодове",
+                "Домашни десерти"
+            ]
+        },
+
+        "Бисквити": {
+            "ingredients": [
+                "брашно",
+                "захар",
+                "палмово масло",
+                "глюкозо-фруктозен сироп"
+            ],
+
+            "alternatives": [
+                "Овесени бисквити",
+                "Домашни сладки",
+                "Ядки и плодове"
+            ]
+        },
+
+        "Колбас": {
+            "ingredients": [
+                "e250",
+                "e251",
+                "нитрит",
+                "нитрат",
+                "месо"
+            ],
+
+            "alternatives": [
+                "Печено месо",
+                "Пилешко филе",
+                "Домашно месо"
+            ]
+        }
+    }
+
+else:
+
+    OCR_LANG = ['en']
+
+    harmful_ingredients = {
+
+        "e102": "Tartrazine – may cause allergies and hyperactivity.",
+        "e104": "Quinoline Yellow – linked to hyperactivity.",
+        "e110": "Sunset Yellow – may cause allergic reactions.",
+        "e122": "Carmoisine – possible allergies.",
+        "e124": "Ponceau 4R – linked to hyperactivity.",
+        "e129": "Allura Red – may affect children.",
+        "e211": "Sodium benzoate – may affect the nervous system.",
+        "e220": "Sulfur dioxide – may trigger asthma.",
+        "e250": "Sodium nitrite – linked to cancer risk.",
+        "e251": "Sodium nitrate – harmful in excess.",
+        "e320": "BHA – possible carcinogen.",
+        "e321": "BHT – may affect the liver.",
+        "e407": "Carrageenan – may irritate the stomach.",
+        "e621": "MSG – may cause headaches.",
+        "e627": "Disodium guanylate – flavor enhancer.",
+        "e631": "Disodium inosinate – flavor enhancer.",
+        "palm oil": "Contains high saturated fats.",
+        "aspartame": "Artificial sweetener.",
+        "high fructose corn syrup": "May lead to diabetes.",
+        "trans fats": "Increase heart disease risk."
+    }
+
+    product_patterns = {
+
+        "Chips": {
+            "ingredients": [
+                "potatoes",
+                "palm oil",
+                "e621",
+                "salt"
+            ],
+
+            "alternatives": [
+                "Baked potatoes",
+                "Vegetable chips",
+                "Air popcorn"
+            ]
+        },
+
+        "Soft Drink": {
+            "ingredients": [
+                "sugar",
+                "aspartame",
+                "caramel",
+                "caffeine"
+            ],
+
+            "alternatives": [
+                "Homemade lemonade",
+                "Sparkling water with lemon",
+                "Unsweetened iced tea"
+            ]
+        },
+
+        "Chocolate": {
+            "ingredients": [
+                "cocoa",
+                "palm oil",
+                "milk",
+                "sugar"
+            ],
+
+            "alternatives": [
+                "Dark chocolate 85%",
+                "Fruit",
+                "Homemade desserts"
+            ]
+        },
+
+        "Cookies": {
+            "ingredients": [
+                "flour",
+                "sugar",
+                "palm oil",
+                "high fructose corn syrup"
+            ],
+
+            "alternatives": [
+                "Oat cookies",
+                "Homemade cookies",
+                "Nuts and fruits"
+            ]
+        },
+
+        "Processed Meat": {
+            "ingredients": [
+                "e250",
+                "e251",
+                "nitrite",
+                "nitrate",
+                "meat"
+            ],
+
+            "alternatives": [
+                "Roasted meat",
+                "Chicken fillet",
+                "Homemade meat"
+            ]
+        }
+    }
 
 # =========================================
-# UPLOAD
+# FILE UPLOAD
 # =========================================
 
 uploaded_file = st.file_uploader(
-    "Качете снимка на етикет",
+    "Качете снимка / Upload image",
     type=["jpg", "jpeg", "png"]
 )
 
 # =========================================
-# OCR
+# OCR ANALYSIS
 # =========================================
 
 if uploaded_file:
 
     image = Image.open(uploaded_file)
 
-    st.image(image, caption="Качено изображение", use_column_width=True)
+    st.image(
+        image,
+        caption="Качено изображение" if language == "Български" else "Uploaded image",
+        use_column_width=True
+    )
 
-    # Подобряване на контраста
+    # IMAGE ENHANCEMENT
     enhancer = ImageEnhance.Contrast(image)
     image = enhancer.enhance(2)
 
     image_np = np.array(image)
 
-    st.write("Разпознаване на текст...")
+    if language == "Български":
+        st.write("Разпознаване на текст...")
+    else:
+        st.write("Reading text...")
 
-    reader = easyocr.Reader(['bg', 'en'])
+    # OCR
+    reader = easyocr.Reader(OCR_LANG)
 
     results = reader.readtext(image_np, detail=0)
 
     extracted_text = " ".join(results).lower()
 
-    st.subheader("Разпознат текст:")
+    # SHOW TEXT
+    if language == "Български":
+        st.subheader("Разпознат текст:")
+    else:
+        st.subheader("Recognized text:")
+
     st.write(extracted_text)
 
     # =========================================
-    # ТЪРСЕНЕ НА ВРЕДНИ СЪСТАВКИ
+    # HARMFUL INGREDIENTS
     # =========================================
 
-    st.subheader("Вредни съставки:")
+    if language == "Български":
+        st.subheader("Вредни съставки:")
+    else:
+        st.subheader("Harmful ingredients:")
 
     found = False
 
@@ -282,17 +312,19 @@ if uploaded_file:
 
             found = True
 
-            st.error(f"Открито: {ingredient.upper()}")
+            st.error(f"{ingredient.upper()}")
             st.write(info)
 
     if not found:
-        st.success("Не са открити вредни съставки.")
+
+        if language == "Български":
+            st.success("Не са открити вредни съставки.")
+        else:
+            st.success("No harmful ingredients found.")
 
     # =========================================
-    # AI ПОЗНАВАНЕ НА ПРОДУКТ
+    # PRODUCT DETECTION
     # =========================================
-
-    st.subheader("AI Разпознаване на продукта")
 
     best_match = None
     best_score = 0
@@ -311,23 +343,29 @@ if uploaded_file:
             best_match = product
 
     # =========================================
-    # РЕЗУЛТАТ
+    # RESULTS
     # =========================================
+
+    if language == "Български":
+        st.subheader("Разпознат продукт:")
+    else:
+        st.subheader("Detected product:")
 
     if best_match:
 
-        st.success(f"Разпознат продукт: {best_match}")
+        st.success(best_match)
 
-        st.subheader("По-здравословни алтернативи:")
+        if language == "Български":
+            st.subheader("По-здравословни алтернативи:")
+        else:
+            st.subheader("Healthier alternatives:")
 
         for alt in product_patterns[best_match]["alternatives"]:
             st.write(f"• {alt}")
 
     else:
 
-        st.warning("Продуктът не можа да бъде разпознат.")
-
-        st.write("Общи здравословни алтернативи:")
-        st.write("• Домашно приготвена храна")
-        st.write("• Повече плодове")
-        st.write("• Повече зеленчуци")
+        if language == "Български":
+            st.warning("Продуктът не можа да бъде разпознат.")
+        else:
+            st.warning("Could not recognize the product.")
